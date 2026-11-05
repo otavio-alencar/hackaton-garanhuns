@@ -1,0 +1,21 @@
+cat > .gitignore << 'EOF'
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Dados locais / volumes
+n8n_data/
+postgres_data/
+redis_data/
+*.sqlite
+*.log
+
+# Exports de credenciais (nunca versionar)
+credentials/
+
+# Sistema / editor
+.DS_Store
+.vscode/
+.idea/
+EOF
