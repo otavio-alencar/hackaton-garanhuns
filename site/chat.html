@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0B5D4B">
+  <title>Chat · Pergunta Pública</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/session.js"></script>
+</head>
+<body data-shell="chat" data-title="Nova consulta">
+  <div id="page">
+    <div class="chat-layout">
+      <section class="chat-card" aria-labelledby="chat-heading">
+        <header class="chat-heading">
+          <span data-avatar="assistant"></span>
+          <div>
+            <h2 id="chat-heading">Pergunta Pública</h2>
+            <small><span class="status-dot" aria-hidden="true"></span>Responde com dados abertos e cita a fonte</small>
+          </div>
+        </header>
+
+        <div id="visitor-banner" class="notice" hidden>
+          <p><strong>Você está como visitante.</strong> Pode conversar normalmente, mas as consultas não são salvas (somem ao recarregar) e os dashboards exigem login.</p>
+          <a id="visitor-login" class="button button-small" href="login.html">Entrar</a>
+        </div>
+
+        <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Conversa" tabindex="0"></div>
+
+        <form id="chat-form" class="chat-form" novalidate>
+          <label for="question-input" class="sr-only">Sua pergunta</label>
+          <textarea id="question-input" rows="1" maxlength="500" placeholder="Pergunte sobre contratos, empenhos ou pagamentos…" autocomplete="off"></textarea>
+          <button id="send-button" class="send-button" type="submit" aria-label="Enviar pergunta" disabled>
+            <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 20 4l-4.5 16-3.5-6.5L4 12Z"/><path d="m12 13.5 3.5-4"/></svg>
+          </button>
+          <span id="char-counter" class="char-counter" hidden></span>
+        </form>
+        <p class="chat-disclaimer">Verifique as informações. Como qualquer IA, podemos cometer erros.</p>
+      </section>
+
+      <aside class="suggestion-card" aria-labelledby="suggestions-title">
+        <h2 id="suggestions-title">Experimente perguntar</h2>
+        <div id="suggestions" class="suggestion-list">
+          <button type="button" class="suggestion" data-question="Quais os maiores contratos de 2025?">Quais os maiores contratos de 2025?</button>
+          <button type="button" class="suggestion" data-question="Quais órgãos têm contratos com fornecedores de tecnologia?">Quais órgãos têm contratos de tecnologia?</button>
+          <button type="button" class="suggestion" data-question="Quais são as fontes dessas informações?">Quais são as fontes dessas informações?</button>
+        </div>
+        <div class="tip-box"><strong>Dica</strong><p>Quanto mais específica a pergunta (órgão, período, assunto), melhor a resposta.</p></div>
+      </aside>
+    </div>
+  </div>
+  <script src="js/ui.js"></script>
+  <script src="js/shell.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/chat.js"></script>
+</body>
+</html>

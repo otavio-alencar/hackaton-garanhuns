@@ -104,5 +104,116 @@ returns jsonb language sql security definer set search_path = public as $$
   select jsonb_build_object('docs', coalesce(jsonb_agg(to_jsonb(r)), '[]'::jsonb)) from r;
 $$;
 
-revoke all on function obter_perfil(uuid), buscar_documentos(uuid, vector, int) from public, anon, authenticated;
-grant execute on function obter_perfil(uuid), buscar_documentos(uuid, vector, int) to service_role;
+-- =====================================================================
+-- Dashboards: UMA função devolve os dados de cada visão e DECIDE no banco
+-- quem pode ver o quê (não adianta trocar a URL no navegador).
+--   cidadao    -> qualquer perfil cadastrado (limitado a estados/tipos do perfil)
+--   risco      -> analista e admin
+--   governanca -> só admin (lê o query_log)
+-- Sem permissão devolve {"erro": "..."} e nenhum dado.
+-- =====================================================================
+create or replace function painel(p_user_id uuid, p_visao text)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  p perfis%rowtype;
+  v_rank text[];   -- tipos usados nos rankings (evita contar empenho + pagamento da mesma despesa 2x)
+  r jsonb;
+begin
+  select * into p from perfis where user_id = p_user_id;
+  if not found then return jsonb_build_object('erro', 'sem_perfil'); end if;
+
+  if p_visao not in ('cidadao', 'risco', 'governanca') then
+    return jsonb_build_object('erro', 'visao_invalida');
+  elsif p_visao = 'risco' and p.perfil not in ('analista', 'admin') then
+    return jsonb_build_object('erro', 'acesso_negado');
+  elsif p_visao = 'governanca' and p.perfil <> 'admin' then
+    return jsonb_build_object('erro', 'acesso_negado');
+  end if;
+
+  v_rank := case when 'empenho' = any (p.tipos_permitidos)
+                 then array_remove(p.tipos_permitidos, 'pagamento') else p.tipos_permitidos end;
+
+  if p_visao = 'cidadao' then
+    with d as (select * from despesas where estado = any (p.estados_permitidos) and tipo = any (p.tipos_permitidos))
+    select jsonb_build_object(
+      'visao', 'cidadao', 'perfil', p.perfil, 'estados', p.estados_permitidos, 'tipos', p.tipos_permitidos,
+      'total_registros', (select count(*) from d),
+      'orgaos', (select count(distinct orgao) from d),
+      'fornecedores', (select count(distinct coalesce(cnpj_fornecedor, fornecedor)) from d),
+      'ultima_data', (select max(data) from d),
+      'por_tipo', (select coalesce(jsonb_agg(jsonb_build_object('tipo', tipo, 'qtd', q, 'valor', v) order by v desc), '[]')
+                     from (select tipo, count(*) q, coalesce(sum(valor), 0) v from d group by tipo) t),
+      'top_orgaos', (select coalesce(jsonb_agg(jsonb_build_object('estado', estado, 'orgao', orgao, 'valor', v) order by v desc), '[]')
+                       from (select estado, orgao, sum(valor) v from d
+                              where tipo = any (v_rank) and orgao is not null group by 1, 2 order by v desc limit 8) t),
+      'top_fornecedores', (select coalesce(jsonb_agg(jsonb_build_object('fornecedor', fornecedor, 'valor', v) order by v desc), '[]')
+                             from (select fornecedor, sum(valor) v from d
+                                    where tipo = any (v_rank) and coalesce(fornecedor, '') <> '' group by 1 order by v desc limit 8) t),
+      'por_mes', (select coalesce(jsonb_agg(jsonb_build_object('mes', mes) || vals order by mes), '[]')
+                    from (select mes, jsonb_object_agg(tipo, v) vals
+                            from (select to_char(data, 'YYYY-MM') mes, tipo, sum(valor) v
+                                    from d where data >= date '2000-01-01' group by 1, 2) m
+                           group by mes) x),
+      'maiores', (select coalesce(jsonb_agg(to_jsonb(t) order by t.valor desc), '[]')
+                    from (select id, data, tipo, estado, orgao, fornecedor, valor, fonte_url
+                            from d order by valor desc nulls last limit 15) t)
+    ) into r;
+    return r;
+
+  elsif p_visao = 'risco' then
+    with d as (select * from despesas where estado = any (p.estados_permitidos) and tipo = any (p.tipos_permitidos)),
+         n as (select * from d where coalesce(fornecedor, '') <> '')
+    select jsonb_build_object(
+      'visao', 'risco', 'perfil', p.perfil, 'estados', p.estados_permitidos,
+      'fornecedores', (select count(distinct coalesce(cnpj_fornecedor, fornecedor)) from n),
+      'contratos', (select count(*) from d where tipo = 'contrato'),
+      'valor_contratado', (select coalesce(sum(valor), 0) from d where tipo = 'contrato'),
+      'qtd_estados', (select count(distinct estado) from d),
+      'concentracao_top5', (select round(100.0 * coalesce(sum(v), 0) / nullif((select sum(valor) from n where tipo = any (v_rank)), 0), 1)
+                              from (select sum(valor) v from n where tipo = any (v_rank) group by fornecedor order by 1 desc limit 5) t),
+      'por_fornecedor', (select coalesce(jsonb_agg(to_jsonb(t) order by t.contratado + t.pago desc), '[]')
+                           from (select estado, fornecedor,
+                                        count(*) filter (where tipo = 'contrato') contratos,
+                                        coalesce(sum(valor) filter (where tipo = 'contrato'), 0) contratado,
+                                        coalesce(sum(valor) filter (where tipo = 'pagamento'), 0) pago
+                                   from n group by estado, fornecedor
+                                  order by coalesce(sum(valor) filter (where tipo = 'contrato'), 0)
+                                         + coalesce(sum(valor) filter (where tipo = 'pagamento'), 0) desc
+                                  limit 15) t),
+      'multi_orgao', (select coalesce(jsonb_agg(to_jsonb(t) order by t.orgaos desc, t.valor desc), '[]')
+                        from (select fornecedor, count(distinct orgao) orgaos, sum(valor) valor
+                                from n where tipo = any (v_rank) group by fornecedor
+                               having count(distinct orgao) >= 2 order by 2 desc, 3 desc limit 8) t),
+      'por_estado', (select coalesce(jsonb_agg(to_jsonb(t) order by t.valor desc), '[]')
+                       from (select estado, count(*) qtd, coalesce(sum(valor), 0) valor
+                               from d where tipo = any (v_rank) group by estado) t)
+    ) into r;
+    return r;
+
+  else  -- governanca: auditoria das consultas (query_log)
+    with q as (select * from query_log)
+    select jsonb_build_object(
+      'visao', 'governanca', 'perfil', p.perfil,
+      'total', (select count(*) from q),
+      'bloqueadas', (select count(*) from q where bloqueado),
+      'com_fonte_pct', (select round(100.0 * count(*) filter (where jsonb_typeof(fontes) = 'array' and jsonb_array_length(fontes) > 0)
+                                     / nullif(count(*), 0), 1) from q where not bloqueado),
+      'por_perfil', (select coalesce(jsonb_agg(jsonb_build_object('perfil', perfil, 'qtd', c) order by c desc), '[]')
+                       from (select coalesce(perfil, 'desconhecido') perfil, count(*) c from q group by 1) t),
+      'motivos', (select coalesce(jsonb_agg(jsonb_build_object('motivo', motivo, 'qtd', c) order by c desc), '[]')
+                    from (select coalesce(motivo, 'não informado') motivo, count(*) c from q where bloqueado group by 1) t),
+      'fontes_usadas', (select coalesce(jsonb_agg(jsonb_build_object('fonte_id', fid, 'qtd', c) order by c desc), '[]')
+                          from (select f ->> 'fonte_id' fid, count(*) c
+                                  from q, jsonb_array_elements(case when jsonb_typeof(q.fontes) = 'array' then q.fontes else '[]'::jsonb end) f
+                                 where f ->> 'fonte_id' is not null group by 1) t),
+      'recentes', (select coalesce(jsonb_agg(to_jsonb(t) order by t.criado_em desc), '[]')
+                     from (select criado_em, coalesce(perfil, 'desconhecido') perfil, left(pergunta, 90) pergunta, bloqueado, motivo
+                             from q order by criado_em desc limit 12) t)
+    ) into r;
+    return r;
+  end if;
+end;
+$$;
+
+revoke all on function obter_perfil(uuid), buscar_documentos(uuid, vector, int), painel(uuid, text) from public, anon, authenticated;
+grant execute on function obter_perfil(uuid), buscar_documentos(uuid, vector, int), painel(uuid, text) to service_role;

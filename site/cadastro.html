@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0B5D4B">
+  <title>Cadastro · Pergunta Pública</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/session.js"></script>
+</head>
+<body class="auth-body">
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+  <main id="main" class="auth-screen">
+    <form id="register-form" class="auth-card auth-form" novalidate>
+        <a class="auth-logo" href="chat.html" aria-label="Pergunta Pública — voltar ao chat"><span data-logo></span><span><strong>Pergunta</strong> Pública</span></a>
+      <h1>Criar conta</h1>
+      <p class="auth-sub">Cadastro de demonstração: nada é enviado a um servidor.</p>
+        <div class="field"><label for="reg-name">Nome completo</label>
+        <input id="reg-name" type="text" autocomplete="name"></div>
+        <div class="field"><label for="reg-email">E-mail</label>
+        <input id="reg-email" type="email" autocomplete="email"></div>
+        <div class="field"><label for="reg-cpf">CPF</label>
+        <input id="reg-cpf" type="text" inputmode="numeric" maxlength="14" autocomplete="off">
+        <small class="hint" id="reg-cpf-hint">Usado só para validar o cadastro na demonstração. Não é guardado.</small></div>
+        <div class="field"><label for="reg-user">Usuário</label>
+        <input id="reg-user" type="text" autocomplete="username" autocapitalize="none">
+        <small class="hint" id="reg-user-hint">3 a 20 letras, números ou _.</small></div>
+        <div class="field"><label for="reg-pass">Senha</label>
+        <input id="reg-pass" type="password" autocomplete="new-password">
+        <small class="hint" id="reg-pass-hint">Pelo menos 8 caracteres, com letras e números.</small></div>
+        <div class="field"><label for="reg-pass2">Confirmar senha</label>
+        <input id="reg-pass2" type="password" autocomplete="new-password"></div>
+      <button class="button button-primary button-block" type="submit">Criar conta</button>
+      <p class="auth-terms">Ao criar a conta, você concorda com nossos <a href="#">termos e condições</a>.</p>
+      <a class="auth-back" href="login.html">Voltar ao login</a>
+    </form>
+  </main>
+  <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

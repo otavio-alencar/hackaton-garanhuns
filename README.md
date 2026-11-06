@@ -14,5 +14,5 @@ Portais ──► coletor/ (Python) ──► data/*.json ──► Supabase (ta
 
 - `coletor/` — `python -m coletor.main` (coleta) e `python -m coletor.carregar` (Supabase + embeddings)
 - `supabase/` — `schema.sql`, `seed.sql`
-- `workflows/` — agente do n8n
-- `site/` — dashboard e chatbot
+- `workflows/` — agente do chat e painel dos dashboards (n8n)
+- `site/` — Pergunta Pública: chat (aberto) e dashboards por perfil (login simulado)

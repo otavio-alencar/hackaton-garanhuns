@@ -8,3 +8,11 @@ on conflict (user_id) do update
   set perfil = excluded.perfil,
       estados_permitidos = excluded.estados_permitidos,
       tipos_permitidos = excluded.tipos_permitidos;
+
+-- Visitante: quem usa o chat SEM login. Acesso mínimo (só contratos de PE).
+insert into perfis (user_id, perfil, estados_permitidos, tipos_permitidos) values
+  ('00000000-0000-0000-0000-000000000000', 'cidadao', '{PE}', '{contrato}')
+on conflict (user_id) do update
+  set perfil = excluded.perfil,
+      estados_permitidos = excluded.estados_permitidos,
+      tipos_permitidos = excluded.tipos_permitidos;
