@@ -1,5 +1,5 @@
 """Coletor do Portal da Transparência do Governo Federal (estado = "BR").
-A API exige uma chave GRATUITA (veja GUIA.md, passo 2). Sem chave este módulo é ignorado.
+A API exige uma chave GRATUITA (veja o README.md, seção 5). Sem chave este módulo é ignorado.
 Docs: https://api.portaldatransparencia.gov.br/swagger-ui/index.html
 ATENÇÃO: os nomes dos campos abaixo seguem o swagger; confira com uma chave real.
 """

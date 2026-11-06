@@ -69,7 +69,7 @@ def rpc(nome, corpo):
     except urllib.error.HTTPError as e:
         detalhe = e.read().decode("utf-8", "replace")[:300]
         if e.code == 404:
-            sys.exit("A função '" + nome + "' não existe no Supabase. Rode de novo o supabase/schema.sql no SQL Editor (veja GUIA.md).")
+            sys.exit("A função '" + nome + "' não existe no Supabase. Rode de novo o supabase/schema.sql no SQL Editor (veja o README.md).")
         sys.exit(f"ERRO {e.code} em {nome}: {detalhe}")
 
 
@@ -167,7 +167,7 @@ def main():
     args = ap.parse_args()
     faltam = [v for v in ("SUPABASE_URL", "SUPABASE_SERVICE_KEY", "GEMINI_API_KEY") if not os.environ.get(v)]
     if faltam:
-        sys.exit(f"Faltam no .env: {', '.join(faltam)} (veja GUIA.md)")
+        sys.exit(f"Faltam no .env: {', '.join(faltam)} (veja o README.md)")
 
     if args.so_texto:
         return atualizar_textos()
