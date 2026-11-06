@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0B5D4B">
+  <title>Dashboard · Risco / Compliance · Pergunta Pública</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/session.js" data-guard data-tab="risk"></script>
+</head>
+<body data-shell="dashboard" data-title="Dashboard" data-view="risk">
+  <div id="page">
+    <div class="dashboard-intro">
+      <div><h2>Painel de informações · Risco / Compliance</h2><p>Indicadores calculados a partir dos dados abertos já coletados.</p></div>
+      <span class="data-tag" id="data-tag"></span>
+    </div>
+    <nav class="tabs" aria-label="Visões do dashboard">
+          <a class="tab" href="dashboard-cidadao.html" data-tab="citizen">Cidadão</a>
+          <a class="tab" href="dashboard-risco.html" data-tab="risk">Risco / Compliance</a>
+          <a class="tab" href="dashboard-governanca.html" data-tab="admin">Governança</a>
+    </nav>
+    <div id="dashboard-view" class="dashboard-view" aria-live="polite" aria-busy="true"></div>
+  </div>
+  <script src="js/ui.js"></script>
+  <script src="js/shell.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

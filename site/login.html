@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0B5D4B">
+  <title>Login · Pergunta Pública</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/session.js"></script>
+</head>
+<body class="auth-body">
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+  <main id="main" class="auth-screen">
+    <section class="auth-card auth-split">
+      <div class="auth-brand">
+        <span class="brand-mark-lg" data-logo-lg></span>
+        <h1>Pergunta Pública</h1>
+        <p class="auth-lead">Informação pública, sem complicação. Pergunte e veja de onde veio cada resposta.</p>
+        <p class="auth-sources-label">Dados abertos de</p>
+        <ul class="auth-sources">
+          <li>TCE-PE · Dados Abertos</li>
+          <li>Portal da Transparência (União)</li>
+        </ul>
+      </div>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <h2>Entrar</h2>
+        <p class="auth-sub">O login é opcional: ele libera os dashboards e guarda suas consultas na conta.</p>
+        <div class="field"><label for="login-user">Usuário</label>
+        <input id="login-user" type="text" autocomplete="username" autocapitalize="none"></div>
+        <div class="field"><label for="login-pass">Senha</label>
+        <input id="login-pass" type="password" autocomplete="current-password"></div>
+        <button class="button button-primary button-block" type="submit">Entrar</button>
+        <p id="login-feedback" class="auth-feedback" role="alert"></p>
+        <div class="auth-links">
+          <a href="recuperar-senha.html">Esqueceu a senha?</a>
+          <a href="cadastro.html">Criar conta</a>
+        </div>
+        <a id="continue-link" class="button button-ghost button-block" href="chat.html">Continuar sem login</a>
+
+        <!-- Atalho SÓ da demonstração: remover quando houver autenticação real -->
+        <div class="demo-shortcuts">
+          <span>Acesso rápido (demonstração)</span>
+          <div>
+            <button type="button" data-demo-user="cidadao_pe">Cidadão</button>
+            <button type="button" data-demo-user="analista">Analista</button>
+            <button type="button" data-demo-user="admin">Admin</button>
+          </div>
+        </div>
+        <p class="auth-terms">Ao entrar, você concorda com nossos <a href="#">termos e condições</a>.</p>
+      </form>
+    </section>
+  </main>
+  <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

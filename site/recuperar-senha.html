@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0B5D4B">
+  <title>Recuperar senha · Pergunta Pública</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/session.js"></script>
+</head>
+<body class="auth-body">
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+  <main id="main" class="auth-screen">
+    <section class="auth-card auth-form">
+        <a class="auth-logo" href="chat.html" aria-label="Pergunta Pública — voltar ao chat"><span data-logo></span><span><strong>Pergunta</strong> Pública</span></a>
+      <h1>Recuperar senha</h1>
+
+      <form id="recover-form" data-step="id" novalidate>
+        <p class="auth-sub">Informe seu usuário ou e-mail para receber um código.</p>
+        <div class="field"><label for="recover-id">Usuário ou e-mail</label>
+        <input id="recover-id" type="text" autocomplete="username" autocapitalize="none"></div>
+        <button class="button button-primary button-block" type="submit">Enviar código</button>
+      </form>
+
+      <form id="recover-code-form" data-step="code" novalidate hidden>
+        <p class="auth-sub" id="recover-sent" role="status"></p>
+        <div class="field"><label for="recover-code">Código recebido</label>
+        <input id="recover-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <small class="hint" id="recover-code-hint">Na demonstração, qualquer código de 6 números funciona.</small></div>
+        <button class="button button-primary button-block" type="submit">Continuar</button>
+        <a id="resend-code" class="auth-back" href="#">Reenviar código</a>
+      </form>
+
+      <form id="recover-new-form" data-step="password" novalidate hidden>
+        <p class="auth-sub">Código aceito. Defina sua nova senha.</p>
+        <div class="field"><label for="new-pass">Nova senha</label>
+        <input id="new-pass" type="password" autocomplete="new-password">
+        <small class="hint" id="new-pass-hint">Pelo menos 8 caracteres, com letras e números.</small></div>
+        <div class="field"><label for="new-pass2">Confirmar nova senha</label>
+        <input id="new-pass2" type="password" autocomplete="new-password"></div>
+        <button class="button button-primary button-block" type="submit">Redefinir senha</button>
+      </form>
+
+      <a class="auth-back" href="login.html">Voltar ao login</a>
+    </section>
+  </main>
+  <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
