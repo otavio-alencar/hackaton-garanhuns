@@ -11,7 +11,7 @@ redis_data/
 *.log
 
 # Dados coletados (regenere com: python -m coletor.main). O resumo do site fica versionado.
-data/
+/data/
 __pycache__/
 
 # Exports de credenciais (nunca versionar)
