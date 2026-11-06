@@ -75,6 +75,109 @@ alter table perfis    enable row level security;
 alter table query_log enable row level security;
 
 -- =====================================================================
+-- Histórico de coletas: cada rodada do coletor fica registrada com data, e cada
+-- versão NOVA ou ALTERADA de uma despesa vira uma linha que nunca é sobrescrita.
+--   despesas            = estado atual (como a fonte publica hoje)
+--   despesas_historico  = linha do tempo (só acrescenta; guarda valor anterior)
+--   coletas             = resumo de cada rodada (lidos, novos, alterados)
+-- =====================================================================
+create table if not exists coletas (
+  id           bigint generated always as identity primary key,
+  iniciada_em  timestamptz not null default now(),
+  observacao   text,
+  lidos        int not null default 0,
+  novos        int not null default 0,   -- vistos pela primeira vez no histórico
+  alterados    int not null default 0,   -- já existiam e mudaram (valor, órgão, fornecedor…)
+  inalterados  int not null default 0
+);
+
+create table if not exists despesas_historico (
+  id                bigint generated always as identity primary key,
+  despesa_id        text not null,
+  coleta_id         bigint not null references coletas(id),
+  registrado_em     timestamptz not null default now(),
+  evento            text not null check (evento in ('novo', 'inicial', 'alterado')),
+  campos_alterados  text[] not null default '{}',
+  valor_anterior    numeric(16,2),
+  estado            text,
+  orgao             text,
+  tipo              text,
+  cnpj_fornecedor   text,
+  fornecedor        text,
+  valor             numeric(16,2),
+  data              date,
+  descricao         text,
+  fonte_url         text,
+  fonte_id          text
+);
+create index if not exists despesas_historico_despesa_idx on despesas_historico (despesa_id, registrado_em desc);
+create index if not exists despesas_historico_coleta_idx on despesas_historico (coleta_id);
+create index if not exists despesas_historico_evento_idx on despesas_historico (evento, registrado_em desc);
+
+alter table coletas            enable row level security;
+alter table despesas_historico enable row level security;
+
+-- Abre uma rodada de coleta e devolve o id dela
+create or replace function iniciar_coleta(p_observacao text default null)
+returns bigint language sql security definer set search_path = public as $$
+  insert into coletas (observacao) values (p_observacao) returning id;
+$$;
+
+-- Compara um lote de registros com o estado atual (tabela despesas) e grava no histórico o que é
+-- novo ou mudou. CHAME ANTES de atualizar a tabela despesas com esse mesmo lote.
+create or replace function registrar_lote(p_coleta bigint, p_registros jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  r jsonb;
+begin
+  with entrada as (
+    select * from jsonb_to_recordset(p_registros) as x(
+      id text, estado text, orgao text, tipo text, cnpj_fornecedor text, fornecedor text,
+      valor numeric, data date, descricao text, fonte_url text, fonte_id text)
+  ), cmp as (
+    select e.*, d.id as ja_existe, d.valor as valor_atual,
+           array_remove(array[
+             case when d.valor is distinct from e.valor then 'valor' end,
+             case when d.orgao is distinct from e.orgao then 'orgao' end,
+             case when d.fornecedor is distinct from e.fornecedor then 'fornecedor' end,
+             case when d.cnpj_fornecedor is distinct from e.cnpj_fornecedor then 'cnpj_fornecedor' end,
+             case when d.descricao is distinct from e.descricao then 'descricao' end,
+             case when d.data is distinct from e.data then 'data' end,
+             case when d.tipo is distinct from e.tipo then 'tipo' end
+           ], null) as campos,
+           exists (select 1 from despesas_historico h where h.despesa_id = e.id) as tem_historico
+      from entrada e left join despesas d on d.id = e.id
+  ), ins as (
+    insert into despesas_historico (despesa_id, coleta_id, evento, campos_alterados, valor_anterior,
+                                    estado, orgao, tipo, cnpj_fornecedor, fornecedor, valor, data, descricao, fonte_url, fonte_id)
+    select id, p_coleta,
+           case when ja_existe is null then 'novo'
+                when cardinality(campos) > 0 then 'alterado'
+                else 'inicial' end,                    -- 'inicial' = já existia mas ainda não tinha histórico
+           case when ja_existe is not null then campos else '{}'::text[] end,
+           case when 'valor' = any (campos) then valor_atual end,
+           estado, orgao, tipo, cnpj_fornecedor, fornecedor, valor, data, descricao, fonte_url, fonte_id
+      from cmp
+     where ja_existe is null or cardinality(campos) > 0 or not tem_historico
+    returning evento
+  )
+  select jsonb_build_object(
+           'lidos', (select count(*) from entrada),
+           'novos', count(*) filter (where evento in ('novo', 'inicial')),
+           'alterados', count(*) filter (where evento = 'alterado'))
+    into r from ins;
+
+  update coletas
+     set lidos = lidos + (r ->> 'lidos')::int,
+         novos = novos + (r ->> 'novos')::int,
+         alterados = alterados + (r ->> 'alterados')::int,
+         inalterados = inalterados + (r ->> 'lidos')::int - (r ->> 'novos')::int - (r ->> 'alterados')::int
+   where id = p_coleta;
+  return r;
+end;
+$$;
+
+-- =====================================================================
 -- Funções chamadas pelo n8n. O filtro por estado/tipo acontece AQUI, dentro
 -- do banco, lendo a tabela perfis: a IA nunca recebe documento não autorizado.
 -- Retornam UM objeto JSON (facilita o n8n).
@@ -186,7 +289,16 @@ begin
                                having count(distinct orgao) >= 2 order by 2 desc, 3 desc limit 8) t),
       'por_estado', (select coalesce(jsonb_agg(to_jsonb(t) order by t.valor desc), '[]')
                        from (select estado, count(*) qtd, coalesce(sum(valor), 0) valor
-                               from d where tipo = any (v_rank) group by estado) t)
+                               from d where tipo = any (v_rank) group by estado) t),
+      'qtd_coletas', (select count(*) from coletas),
+      'qtd_mudancas', (select count(*) from despesas_historico h
+                        where h.evento = 'alterado' and h.estado = any (p.estados_permitidos) and h.tipo = any (p.tipos_permitidos)),
+      'mudancas', (select coalesce(jsonb_agg(to_jsonb(t) order by t.registrado_em desc), '[]')
+                     from (select h.registrado_em, h.coleta_id, h.estado, h.orgao, h.fornecedor, h.tipo,
+                                  h.valor_anterior, h.valor, h.campos_alterados
+                             from despesas_historico h
+                            where h.evento = 'alterado' and h.estado = any (p.estados_permitidos) and h.tipo = any (p.tipos_permitidos)
+                            order by h.registrado_em desc limit 10) t)
     ) into r;
     return r;
 
@@ -208,12 +320,17 @@ begin
                                  where f ->> 'fonte_id' is not null group by 1) t),
       'recentes', (select coalesce(jsonb_agg(to_jsonb(t) order by t.criado_em desc), '[]')
                      from (select criado_em, coalesce(perfil, 'desconhecido') perfil, left(pergunta, 90) pergunta, bloqueado, motivo
-                             from q order by criado_em desc limit 12) t)
+                             from q order by criado_em desc limit 12) t),
+      'versoes_historico', (select count(*) from despesas_historico),
+      'mudancas_total', (select count(*) from despesas_historico where evento = 'alterado'),
+      'coletas', (select coalesce(jsonb_agg(to_jsonb(t) order by t.iniciada_em desc), '[]')
+                    from (select id, iniciada_em, observacao, lidos, novos, alterados, inalterados
+                            from coletas order by iniciada_em desc limit 8) t)
     ) into r;
     return r;
   end if;
 end;
 $$;
 
-revoke all on function obter_perfil(uuid), buscar_documentos(uuid, vector, int), painel(uuid, text) from public, anon, authenticated;
-grant execute on function obter_perfil(uuid), buscar_documentos(uuid, vector, int), painel(uuid, text) to service_role;
+revoke all on function obter_perfil(uuid), buscar_documentos(uuid, vector, int), painel(uuid, text), iniciar_coleta(text), registrar_lote(bigint, jsonb) from public, anon, authenticated;
+grant execute on function obter_perfil(uuid), buscar_documentos(uuid, vector, int), painel(uuid, text), iniciar_coleta(text), registrar_lote(bigint, jsonb) to service_role;

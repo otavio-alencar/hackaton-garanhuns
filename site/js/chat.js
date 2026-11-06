@@ -119,10 +119,18 @@
     $("#question-input").focus();
   }
 
+  // Memória: as últimas mensagens desta conversa (sem a pergunta atual, sem erros e sem bloqueios)
+  function buildHistory(conversation) {
+    return conversation.messages.slice(0, -1)
+      .filter(m => !m.error && !m.blocked)
+      .slice(-8)
+      .map(m => ({ role: m.role, text: m.text }));
+  }
+
   async function answer(conversation, question) {
     waiting = true; render();
     try {
-      const result = await PP.api.ask({ question, sessionId: conversation.id });
+      const result = await PP.api.ask({ question, sessionId: conversation.id, history: buildHistory(conversation) });
       conversation.messages.push({ id: makeId(), role: "assistant", text: result.resposta, fontes: result.fontes, blocked: result.bloqueado, ts: Date.now() });
     } catch (error) {
       console.error("Erro no chat:", error);

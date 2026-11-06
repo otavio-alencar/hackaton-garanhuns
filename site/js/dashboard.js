@@ -139,6 +139,49 @@
     return sections;
   }
 
+  // ---------- Histórico de coletas ----------
+  const CAMPO = { valor: "valor", orgao: "órgão", fornecedor: "fornecedor", cnpj_fornecedor: "CNPJ", descricao: "descrição", data: "data", tipo: "tipo" };
+
+  // Variação do valor entre duas coletas, ex.: "+50,0%"
+  function variacao(anterior, atual) {
+    if (!anterior) return "—";
+    const v = ((atual - anterior) / anterior) * 100;
+    return `${v > 0 ? "+" : ""}${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+  }
+
+  function mudancasPanel(d) {
+    const lista = d.mudancas || [];
+    const titulo = `Mudanças detectadas entre coletas (${fmt.num(d.qtd_mudancas || 0)})`;
+    if (!lista.length) {
+      return panel(titulo, note(`Nenhuma alteração detectada até agora (${fmt.num(d.qtd_coletas || 0)} coleta(s) registrada(s)). Quando um valor ou dado mudar em uma nova coleta, ele aparece aqui com o valor anterior.`));
+    }
+    return el("article", { class: "panel table-panel" }, el("h3", {}, titulo),
+      table("Mudanças detectadas entre coletas", [
+        { label: "Quando", render: r => fmt.dateTime(r.registrado_em) },
+        { label: "Órgão", key: "orgao" },
+        { label: "Fornecedor", render: r => r.fornecedor || "—" },
+        { label: "O que mudou", render: r => (r.campos_alterados || []).map(c => CAMPO[c] || c).join(", ") },
+        { label: "Valor", num: true, render: r => (r.campos_alterados || []).includes("valor") ? `${fmt.brl(r.valor_anterior)} → ${fmt.brl(r.valor)}` : "—" },
+        { label: "Variação", num: true, render: r => (r.campos_alterados || []).includes("valor") ? variacao(r.valor_anterior, r.valor) : "—" }
+      ], lista),
+      note("Cada coleta é guardada com data. A comparação é feita contra a versão anterior do mesmo registro."));
+  }
+
+  function coletasPanel(d) {
+    const lista = d.coletas || [];
+    if (!lista.length) return panel("Histórico de coletas", note("Nenhuma coleta registrada ainda. Rode o carregador (python -m coletor.carregar) para registrar a primeira."));
+    return el("article", { class: "panel table-panel" }, el("h3", {}, "Histórico de coletas"),
+      table("Histórico de coletas", [
+        { label: "Coleta", render: r => `#${r.id}` },
+        { label: "Quando", render: r => fmt.dateTime(r.iniciada_em) },
+        { label: "Lidos", num: true, render: r => fmt.num(r.lidos) },
+        { label: "Novos", num: true, render: r => fmt.num(r.novos) },
+        { label: "Alterados", num: true, render: r => fmt.num(r.alterados) },
+        { label: "Inalterados", num: true, render: r => fmt.num(r.inalterados) }
+      ], lista),
+      note("Cada rodada do coletor é guardada sem sobrescrever as anteriores: é o histórico de dados que cresce com o tempo."));
+  }
+
   // ---------- Visão: Risco / Compliance ----------
   function renderRisk(d) {
     return [
@@ -155,6 +198,7 @@
           { label: "Pagamentos", num: true, render: r => fmt.brlShort(r.pago) }
         ], d.por_fornecedor || []),
         note("Concentração alta é um indício para olhar com atenção, não prova de irregularidade.")),
+      mudancasPanel(d),
       el("div", { class: "panel-grid" },
         panel("Fornecedores em vários órgãos", (d.multi_orgao || []).length
           ? rankList(d.multi_orgao.map(f => ({ label: f.fornecedor, display: `${f.orgaos} órgãos · ${fmt.brlShort(f.valor)}` })))
@@ -166,13 +210,20 @@
 
   // ---------- Visão: Governança ----------
   function renderAdmin(d) {
-    if (!d.total) return [stateBox("empty", "Nenhuma consulta registrada ainda", "Quando o chat for usado, as consultas aparecem aqui (inclusive as bloqueadas).")];
+    const cards = [
+      metric("Versões no histórico", fmt.num(d.versoes_historico || 0), `${fmt.num(d.mudancas_total || 0)} alteração(ões) detectada(s)`)
+    ];
+    if (!d.total) {
+      return [metricGrid(...cards), coletasPanel(d),
+        stateBox("empty", "Nenhuma consulta registrada ainda", "Quando o chat for usado, as consultas aparecem aqui (inclusive as bloqueadas).")];
+    }
     const share = (qtd) => (qtd / d.total) * 100;
     return [
       metricGrid(
         metric("Consultas registradas", fmt.num(d.total), "no query_log"),
         metric("Respostas com fonte", d.com_fonte_pct == null ? "—" : fmt.pct(d.com_fonte_pct), "entre as não bloqueadas"),
-        metric("Consultas bloqueadas", fmt.num(d.bloqueadas), fmt.pct(share(d.bloqueadas)) + " do total")),
+        metric("Consultas bloqueadas", fmt.num(d.bloqueadas), fmt.pct(share(d.bloqueadas)) + " do total"),
+        ...cards),
       el("div", { class: "panel-grid" },
         panel("Consultas por perfil", barList((d.por_perfil || []).map(p => ({ label: PERFIL[p.perfil] || p.perfil, value: p.qtd, display: `${fmt.num(p.qtd)} · ${fmt.pct(share(p.qtd))}` })))),
         panel("Fontes mais utilizadas", rankList((d.fontes_usadas || []).map(f => ({ label: FONTE[f.fonte_id] || f.fonte_id, display: fmt.num(f.qtd) }))))),
@@ -184,7 +235,8 @@
           { label: "Pergunta", key: "pergunta" },
           { label: "Status", render: r => badge(r.bloqueado) }
         ], d.recentes || []),
-        note("Perguntas truncadas em 90 caracteres. Visível apenas para administradores."))
+        note("Perguntas truncadas em 90 caracteres. Visível apenas para administradores.")),
+      coletasPanel(d)
     ];
   }
 

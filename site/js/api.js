@@ -68,11 +68,15 @@ window.PP = window.PP || {};
     };
   }
 
-  async function ask({ question, sessionId }) {
+  // history: mensagens anteriores da conversa [{ role: "user"|"assistant", text }] — é a "memória" do chat.
+  // O backend não guarda conversas: quem envia o contexto a cada pergunta é o front.
+  async function ask({ question, sessionId, history }) {
     if (cfg.USE_MOCK_CHAT) return mockAnswer(question);
     const user = PP.session.getUser();
     try {
-      return normalizeAnswer(await post(cfg.CHAT_PATH, { user_id: user.userId, session_id: sessionId, pergunta: question }));
+      return normalizeAnswer(await post(cfg.CHAT_PATH, {
+        user_id: user.userId, session_id: sessionId, pergunta: question, historico: history || []
+      }));
     } catch (error) {
       if (error.status === 403) return normalizeAnswer({ bloqueado: true, resposta: error.message, motivo: error.code });
       throw error;

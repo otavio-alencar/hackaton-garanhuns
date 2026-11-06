@@ -25,7 +25,7 @@ Gera `data/fontes.json`, `data/despesas.json` e `data/documents.json`.
 Os dashboards **não** leem esses arquivos: eles leem do Supabase (passo 3 e 5) pela função `painel()`.
 
 > Os dados do TCE-PE são lidos do início de cada lista (a API devolve até 100 mil linhas por chamada).
-> Aumente com `--limite`. Alguns acentos chegam corrompidos (�) da própria API do TCE-PE.
+> Aumente com `--limite`. A API do TCE-PE envia texto em ISO-8859-1; o coletor já lê a codificação correta.
 
 ## 1. Criar o `.env`
 
@@ -79,6 +79,41 @@ Envia fontes, despesas e documentos (com embeddings). 1500 documentos levam algu
 Depois confira no **Table Editor** → `documents`: a coluna `embedding` deve estar preenchida.
 Pode rodar de novo quando quiser (atualiza sem duplicar).
 
+> **Histórico de coletas (novo):** cada vez que você roda o `carregar`, a coleta fica registrada com data e o que for **novo ou
+> alterado** (valor, órgão, fornecedor…) entra em `despesas_historico`, guardando o valor anterior. Nada é sobrescrito nem
+> apagado. Para isso funcionar, rode de novo o `supabase/schema.sql` no SQL Editor (ele cria as tabelas `coletas` e
+> `despesas_historico`). Na primeira rodada tudo aparece como "novo"; **as mudanças só aparecem a partir da segunda coleta**,
+> quando a fonte tiver mudado alguma coisa. Veja em Dashboard → Governança (coletas) e Risco (mudanças detectadas).
+
+> **Se você carregou os dados antes de 06/11/2026:** o texto ficou com acentos trocados por `�` (era um erro de leitura do coletor, já corrigido).
+> Rode de novo `python -m coletor.main --ano 2025 --limite 1500` e `python -m coletor.carregar --max-docs 800` para substituir.
+
+### Como testar o histórico de coletas
+
+1. Pré-requisito: `schema.sql` rodado e `python -m coletor.carregar --max-docs 800` executado uma vez (coleta #1).
+2. Simule que a fonte mudou (altera só o arquivo local `data/despesas.json`, +50% no valor de 3 registros):
+   ```bash
+   python scripts/simular_mudanca.py
+   ```
+3. Registre a nova coleta. `--max-docs 0` evita gastar a cota de embeddings, porque só interessa o histórico:
+   ```bash
+   python -m coletor.carregar --max-docs 0
+   ```
+4. Veja o resultado: **Dashboard → Risco** (painel "Mudanças detectadas", com valor anterior e variação) e
+   **Dashboard → Governança** (coleta #2 com 3 alterados). No SQL Editor:
+   ```sql
+   select despesa_id, valor_anterior, valor, campos_alterados, registrado_em
+   from despesas_historico where evento = 'alterado' order by registrado_em desc;
+   ```
+5. Rode o passo 3 outra vez sem mexer em nada: a coleta #3 deve mostrar **0 alterados** (nada é duplicado).
+6. Para voltar aos dados reais: `python -m coletor.main --ano 2025 --limite 1500` e `python -m coletor.carregar --max-docs 0`.
+   Isso registra a volta ao valor original como mais uma alteração. O histórico nunca apaga, então, se quiser a tela limpa antes de
+   apresentar, apague as coletas de teste no SQL Editor (troque os ids pelos da tabela `coletas`):
+   ```sql
+   delete from despesas_historico where coleta_id in (2, 3, 4);
+   delete from coletas where id in (2, 3, 4);
+   ```
+
 ## 6. n8n (o agente de IA)
 
 1. Suba o n8n:
@@ -112,6 +147,8 @@ Pode rodar de novo quando quiser (atualiza sem duplicar).
 > e troca os acentos por caracteres chineses. Não volte para "Autodetect".
 
 ### Como o agente funciona (5 passos, cada um é um bloco com nota no n8n)
+
+O agente **não guarda conversas**: o site reenvia as últimas mensagens a cada pergunta (`historico`), e é assim que ele "lembra" o que você disse. Conversa comum ("o que você faz?", "meu nome é…") é respondida **sem fontes**; perguntas sobre dados citam `[n]` e só as fontes citadas são mostradas.
 
 1. **Entrada + segurança**: barra prompt injection ("ignore as instruções", "mostre o prompt", chaves, SQL…).
 2. **Controle de acesso**: busca o perfil no Supabase; bloqueia se a pergunta citar estado ou tipo fora do perfil.
@@ -165,9 +202,10 @@ Se o n8n estiver em outra URL, troque `API_BASE` em `config.js`.
   Para novos estados, basta coletar com outro `estado` e conceder em `perfis.estados_permitidos`.
 - **Prompt injection**: lista de padrões (primeira barreira) + instruções fixas + dados delimitados + fontes montadas pelo código.
   Não existe proteção 100%; ela reduz o risco, não o elimina.
+- **Histórico:** só registra mudanças entre coletas que você rodou; se ninguém coletar, não há histórico novo. Despesas que somem da
+  amostra não são apagadas (a amostra é o começo da lista da API, então sumir dela não significa que foi removida da fonte).
 - Os valores do dashboard vêm de uma **amostra** (início da lista da API), não do total do estado. Há valores absurdos
   na própria fonte (ex.: um contrato de R$ 17 bi); o painel mostra o que a fonte publica e avisa na tela.
-- Alguns textos do TCE-PE chegam com acentos perdidos (�) na origem; não há como recuperar.
 - Empenho e pagamento da mesma despesa aparecem como dois registros; por isso o dashboard não soma tipos entre si.
 - CPFs de pessoas físicas **não são guardados** (só CNPJ), por causa da LGPD.
 

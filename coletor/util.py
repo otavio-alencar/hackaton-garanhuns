@@ -84,14 +84,19 @@ def stream_objetos(url, limite):
     (As APIs do TCE-PE devolvem até 100 mil registros / 200 MB por chamada.)"""
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     decoder = json.JSONDecoder()
-    dec_utf8 = codecs.getincrementaldecoder("utf-8")("replace")
     buf, achou, n = "", False, 0
     with urllib.request.urlopen(req, timeout=120) as r:
+        # O TCE-PE envia ISO-8859-1 (Latin-1). Ler como UTF-8 trocava cada acento por "�".
+        charset = r.headers.get_content_charset() or "iso-8859-1"
+        try:
+            dec = codecs.getincrementaldecoder(charset)("replace")
+        except LookupError:
+            dec = codecs.getincrementaldecoder("iso-8859-1")("replace")
         while n < limite:
             pedaco = r.read(1 << 16)
             if not pedaco:
                 break
-            buf += dec_utf8.decode(pedaco)
+            buf += dec.decode(pedaco)
             if not achou:
                 i = buf.find('"conteudo":[')
                 if i < 0:

@@ -17,6 +17,10 @@ Entrada:
 - O front **não** envia estado, tipo nem perfil como autoridade: o backend lê `perfis` pelo `user_id`.
 - `session_id`: id da conversa (hoje o n8n apenas ignora).
 - `pergunta`: até 500 caracteres.
+- `historico` (opcional): memória da conversa, `[{ "role": "user" | "assistant", "text": "…" }]`, as últimas 8 mensagens
+  sem a pergunta atual. O backend **não guarda conversas**: o front reenvia o contexto a cada pergunta. O n8n limita a
+  8 itens de 600 caracteres, remove `<` e `>` e descarta mensagens do usuário que pareçam ataque de prompt. O histórico é
+  tratado como dado, nunca como instrução.
 
 Saída (HTTP 200):
 
@@ -33,6 +37,7 @@ Saída (HTTP 200):
 ```
 
 - O front remove o bloco `Fontes:` do texto e usa `fontes[]` estruturado (`titulo`, `url`, `trecho`).
+- `fontes` só traz o que a resposta **citou** (`[n]` no texto). Conversa comum ("o que você faz?", "meu nome é…") volta com `fontes: []`.
 - Consulta bloqueada (prompt injection, estado/tipo fora do perfil): HTTP 200 com `"bloqueado": true`,
   `motivo` e `resposta` explicando. HTTP `403` com `{ "erro", "mensagem" }` também é tratado como bloqueio.
 - Erros de rede/servidor viram uma mensagem no chat com botão "Tentar novamente".
@@ -44,8 +49,8 @@ Entrada: `{ "user_id": "uuid", "visao": "cidadao" | "risco" | "governanca" }`
 | Visão | Quem pode | Conteúdo |
 |---|---|---|
 | `cidadao` | qualquer perfil cadastrado (limitado a estados/tipos do perfil) | totais por tipo, órgãos, fornecedores, evolução mensal, maiores registros |
-| `risco` | `analista`, `admin` | concentração de fornecedores, resumo por estado/fornecedor, fornecedores em vários órgãos |
-| `governanca` | `admin` | consultas, bloqueios, fontes usadas, atividade recente (lê `query_log`) |
+| `risco` | `analista`, `admin` | concentração de fornecedores, resumo por estado/fornecedor, fornecedores em vários órgãos, **mudanças detectadas entre coletas** |
+| `governanca` | `admin` | consultas, bloqueios, fontes usadas, atividade recente (lê `query_log`), **histórico de coletas** |
 
 Respostas: `200` com os dados · `403 { "erro": "acesso_negado" }` · `401 { "erro": "sem_perfil" }` · `400 { "erro": "pedido_invalido" }`.
 
