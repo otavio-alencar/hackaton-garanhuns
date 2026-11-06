@@ -5,6 +5,10 @@ services:
       - "5678:5678"
     env_file:
       - .env
+    environment:
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false   # permite o workflow ler $env.SUPABASE_URL etc.
+      - N8N_SECURE_COOKIE=false              # necessário para abrir em http://localhost
+      - GENERIC_TIMEZONE=America/Recife
     volumes:
       - n8n_data:/home/node/.n8n
       - ./workflows:/backup/workflows   # <- a ponte container ↔ host

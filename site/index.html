@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portal Inteligente de Transparência</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topo">
+    <div>
+      <h1>Portal Inteligente de Transparência</h1>
+      <p class="sub">Dados públicos do TCE-PE e do Governo Federal, com um assistente que sempre cita a fonte.</p>
+    </div>
+    <span id="gerado" class="selo"></span>
+  </header>
+
+  <main>
+    <section class="kpis" id="kpis" aria-label="Indicadores"></section>
+
+    <section class="grade">
+      <article class="card"><h2>Valor por tipo</h2><div class="gr"><canvas id="gTipo"></canvas></div></article>
+      <article class="card"><h2>Evolução por mês</h2><div class="gr"><canvas id="gMes"></canvas></div></article>
+      <article class="card"><h2>Órgãos que mais gastam</h2><div class="gr alto"><canvas id="gOrgao"></canvas></div></article>
+      <article class="card"><h2>Maiores fornecedores</h2><div class="gr alto"><canvas id="gForn"></canvas></div></article>
+    </section>
+
+    <section class="card">
+      <div class="linha">
+        <h2>Maiores registros</h2>
+        <select id="filtroTipo" aria-label="Filtrar por tipo">
+          <option value="">Todos os tipos</option><option>contrato</option><option>empenho</option><option>pagamento</option>
+        </select>
+      </div>
+      <div class="rolar"><table id="tabela"><thead><tr>
+        <th>Data</th><th>Tipo</th><th>Órgão</th><th>Fornecedor</th><th class="num">Valor</th><th>Fonte</th>
+      </tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Fontes de dados</h2>
+      <ul id="fontes" class="lista"></ul>
+      <p class="aviso">Aviso: alguns textos da API do TCE-PE já chegam sem acentos (�) na origem.</p>
+    </section>
+  </main>
+
+  <!-- Chatbot -->
+  <button id="abrirChat" class="fab" aria-label="Abrir assistente">💬 Pergunte aos dados</button>
+  <aside id="chat" class="chat" hidden aria-label="Assistente de transparência">
+    <div class="chat-topo">
+      <strong>Assistente</strong>
+      <button id="fecharChat" aria-label="Fechar">✕</button>
+    </div>
+    <label class="perfil">Entrar como
+      <select id="perfil"></select>
+    </label>
+    <div id="msgs" class="msgs" aria-live="polite">
+      <div class="msg bot">Olá! Pergunte sobre contratos, empenhos e pagamentos. Eu respondo só com os dados abertos e sempre mostro a fonte.</div>
+    </div>
+    <div class="sugestoes" id="sugestoes"></div>
+    <form id="form" class="form">
+      <input id="pergunta" maxlength="500" placeholder="Ex.: Quais os maiores contratos de 2025?" autocomplete="off" required>
+      <button type="submit">Enviar</button>
+    </form>
+  </aside>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

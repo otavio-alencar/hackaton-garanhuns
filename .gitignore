@@ -1,4 +1,3 @@
-cat > .gitignore << 'EOF'
 # Segredos
 .env
 .env.*
@@ -11,6 +10,10 @@ redis_data/
 *.sqlite
 *.log
 
+# Dados coletados (regenere com: python -m coletor.main). O resumo do site fica versionado.
+data/
+__pycache__/
+
 # Exports de credenciais (nunca versionar)
 credentials/
 
@@ -18,4 +21,3 @@ credentials/
 .DS_Store
 .vscode/
 .idea/
-EOF
